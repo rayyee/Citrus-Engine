@@ -15,6 +15,11 @@ It offers many options, you may use :
 
 Games References
 ----------------
+[![Once Upon a Light](http://aymericlamboley.fr/blog/wp-content/uploads/2013/12/once-upon.png)](http://www.onceuponalight.com)
+[![Battlewars](http://aymericlamboley.fr/blog/wp-content/uploads/2013/11/Battlewars.png)](http://www.newgrounds.com/portal/view/627927)
+[![Snailboy](http://aymericlamboley.fr/blog/wp-content/uploads/2013/09/snailboy.png)](http://www.thoopid.com/snailboy-presskit)
+[![Monsieur Bear's ABC](http://aymericlamboley.fr/blog/wp-content/uploads/2013/09/abc.png)](http://rdrct.it/monsieurbearsabc)
+[![Underwater Adventures](http://aymericlamboley.fr/blog/wp-content/uploads/2013/08/underwaterAdventures.png)](http://underwateradventuresgame.com/)
 [![Roundhouse](http://aymericlamboley.fr/blog/wp-content/uploads/2013/06/roundhouse.png)](http://roundhousegame.com/)
 [![Red n Green 2](http://aymericlamboley.fr/blog/wp-content/uploads/2013/05/red-green-2.png)](http://meowbeast.com/game/red-n-green-2/)
 [![Sophie la Girafe](http://aymericlamboley.fr/blog/wp-content/uploads/2013/05/sophie-2.png)](https://itunes.apple.com/fr/app/sophie-la-girafe/id649739520?l=fr&ls=1&mt=8)
@@ -44,4 +49,16 @@ Repository Setup
 - src : Citrus Engine's source code.
 - srclib : as3 files of some libraries.
 
-[API](http://citrusengine.com/api/)
+[Wiki](http://wiki.starling-framework.org/citrus/start) & [API](http://citrusengine.com/api/)
+
+Support
+-------
+The [Citrus Engine](http://citrusengine.com/) is proudly supported by:
+[![FDT](http://aymericlamboley.fr/blog/wp-content/uploads/2013/12/fdt.png)](http://fdt.powerflasher.com/)[![Jetbrains](http://aymericlamboley.fr/blog/wp-content/uploads/2013/12/jetbrains.png)](http://www.jetbrains.com/)
+If you have any questions on the engine or need some help, we suggest to ask directly on the [forum](http://forum.starling-framework.org/forum/citrus-engine). However for people and companies desiring a strong support, a freelance game developer, or special features you may contact us directly: citrusengine[dot]framework[at]gmail[dot]com
+We will make a pricing plan depending on your need.
+
+Donations
+---------
+The [Citrus Engine](http://citrusengine.com/) requested lots of work to become the most advanced Open-Source & free AS3 game engine. You can show us your love making a donation. It will be divided fairly between contributors.
+[Donate](http://citrusengine.com/support/)

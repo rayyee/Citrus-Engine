@@ -1,8 +1,8 @@
 package citrus.core {
 
-	import citrus.datastructures.DoublyLinkedListNode;
 	import citrus.datastructures.PoolObject;
 	import citrus.objects.APhysicsObject;
+	import citrus.system.Component;
 	import citrus.system.Entity;
 	import citrus.system.components.ViewComponent;
 	import citrus.view.ACitrusView;
@@ -39,7 +39,7 @@ package citrus.core {
 			_objects.length = 0;
 
 			for each (var poolObject:PoolObject in _poolObjects)
-				poolObject.clear();
+				poolObject.destroy();
 
 			_poolObjects.length = 0;
 
@@ -68,10 +68,12 @@ package citrus.core {
 			// Search objects to destroy
 			var garbage:Array = [];
 			var n:uint = _objects.length;
+			
+			var object:CitrusObject;
 
 			for (var i:uint = 0; i < n; ++i) {
 
-				var object:CitrusObject = _objects[i];
+				object = _objects[i];
 
 				if (object.kill)
 					garbage.push(object);
@@ -82,12 +84,18 @@ package citrus.core {
 			// Destroy all objects marked for destroy
 			// TODO There might be a limit on the number of Box2D bodies that you can destroy in one tick?
 			n = garbage.length;
+			var garbageObject:CitrusObject;
 			for (i = 0; i < n; ++i) {
-				var garbageObject:CitrusObject = garbage[i];
+				garbageObject = garbage[i];
 				_objects.splice(_objects.indexOf(garbageObject), 1);
 
 				if (garbageObject is Entity)
-					_view.removeArt((garbageObject as Entity).components["view"]);
+				{
+					var views:Vector.<Component> = (garbageObject as Entity).lookupComponentsByType(ViewComponent);
+						if (views.length > 0)
+							for each(var view:ViewComponent in views)
+								_view.removeArt(view);
+				}
 				else
 					_view.removeArt(garbageObject);
 
@@ -108,6 +116,9 @@ package citrus.core {
 		 */
 		public function add(object:CitrusObject):CitrusObject {
 			
+			if (object is Entity)
+				throw new Error("Object named: " + object.name + " is an entity and should be added to the state via addEntity method.");
+			
 			for each (var objectAdded:CitrusObject in objects) 
 				if (object == objectAdded)
 					throw new Error(object.name + " is already added to the state.");
@@ -124,17 +135,23 @@ package citrus.core {
 		/**
 		 * Call this method to add an Entity to this state. All entities will need to be created
 		 * and added via this method so that they can be properly created, managed, updated, and destroyed.
-		 * @param view an Entity is designed for complex objects, most of the time they have a view component.
 		 * @return The Entity that you passed in. Useful for linking commands together.
 		 */
-		public function addEntity(entity:Entity, view:ViewComponent = null):Entity {
+		public function addEntity(entity:Entity):Entity {
 			
 			for each (var objectAdded:CitrusObject in objects)
 				if (entity == objectAdded)
 					throw new Error(entity.name + " is already added to the state.");
 			
 			_objects.push(entity);
-			_view.addArt(view);
+			
+			var views:Vector.<Component> = entity.lookupComponentsByType(ViewComponent);
+			if (views.length > 0)
+				for each(var view:ViewComponent in views)
+				{
+					_view.addArt(view);
+				}
+					
 			return entity;
 		}
 
@@ -174,6 +191,27 @@ package citrus.core {
 				if (object.name == name)
 					return object;
 			}
+			
+			if (_poolObjects.length > 0)
+			{
+				var poolObject:PoolObject;
+				var found:Boolean = false;
+				for each(poolObject in _poolObjects)
+				{
+					poolObject.foreachRecycled(function(pobject:*):Boolean
+					{
+						if (pobject is CitrusObject && pobject["name"] == name)
+						{
+							object = pobject;
+							return found = true;
+						}
+						return false;
+					});
+					
+					if (found)
+						return object;
+				}
+			}
 
 			return null;
 		}
@@ -187,10 +225,25 @@ package citrus.core {
 		public function getObjectsByName(name:String):Vector.<CitrusObject> {
 
 			var objects:Vector.<CitrusObject> = new Vector.<CitrusObject>();
-
-			for each (var object:CitrusObject in _objects) {
+			var object:CitrusObject;
+			
+			for each (object in _objects) {
 				if (object.name == name)
 					objects.push(object);
+			}
+			
+			if (_poolObjects.length > 0)
+			{
+				var poolObject:PoolObject;
+				for each(poolObject in _poolObjects)
+				{
+					poolObject.foreachRecycled(function(pobject:*):Boolean
+					{
+						if (pobject is CitrusObject && pobject["name"] == name)
+							objects.push(pobject as CitrusObject);
+						return false;
+					});
+				}
 			}
 
 			return objects;
@@ -202,10 +255,32 @@ package citrus.core {
 		 * @param type The class of the object you want to get a reference to.
 		 */
 		public function getFirstObjectByType(type:Class):CitrusObject {
-
-			for each (var object:CitrusObject in _objects) {
+			var object:CitrusObject;
+			
+			for each (object in _objects) {
 				if (object is type)
 					return object;
+			}
+			
+			if (_poolObjects.length > 0)
+			{
+				var poolObject:PoolObject;
+				var found:Boolean = false;
+				for each(poolObject in _poolObjects)
+				{
+					poolObject.foreachRecycled(function(pobject:*):Boolean
+					{
+						if (pobject is type)
+						{
+							object = pobject;
+							return found = true;
+						}
+						return false;
+					});
+					
+					if (found)
+						return object;
+				}
 			}
 
 			return null;
@@ -220,10 +295,25 @@ package citrus.core {
 		public function getObjectsByType(type:Class):Vector.<CitrusObject> {
 
 			var objects:Vector.<CitrusObject> = new Vector.<CitrusObject>();
-
-			for each (var object:CitrusObject in _objects) {
+			var object:CitrusObject;
+			
+			for each (object in _objects) {
 				if (object is type) {
 					objects.push(object);
+				}
+			}
+			
+			if (_poolObjects.length > 0)
+			{
+				var poolObject:PoolObject;
+				for each(poolObject in _poolObjects)
+				{
+					poolObject.foreachRecycled(function(pobject:*):Boolean
+					{
+						if (pobject is type)
+							objects.push(pobject as CitrusObject);
+						return false;
+					});
 				}
 			}
 

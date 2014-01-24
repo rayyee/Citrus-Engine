@@ -1,16 +1,20 @@
 package citrus.core {
 
+	import aze.motion.EazeTween;
 	import citrus.input.Input;
 	import citrus.sounds.SoundManager;
 	import citrus.utils.AGameData;
 	import citrus.utils.LevelManager;
+	import flash.geom.Matrix;
 
 	import org.osflash.signals.Signal;
 
 	import flash.display.MovieClip;
 	import flash.display.StageAlign;
+	import flash.display.StageDisplayState;
 	import flash.display.StageScaleMode;
 	import flash.events.Event;
+	import flash.events.FullScreenEvent;
 	
 	/**
 	 * CitrusEngine is the top-most class in the library. When you start your project, you should make your
@@ -21,7 +25,7 @@ package citrus.core {
 	 */	
 	public class CitrusEngine extends MovieClip
 	{
-		public static const VERSION:String = "3.1.7";
+		public static const VERSION:String = "3.1.8";
 				
 		private static var _instance:CitrusEngine;
 		
@@ -29,6 +33,12 @@ package citrus.core {
 		 * Used to pause animations in SpriteArt and StarlingArt.
 		 */
 		public var onPlayingChange:Signal;
+		
+		/**
+		 * called after a stage resize event
+		 * signal passes the new screenWidth and screenHeight as arguments.
+		 */
+		public var onStageResize:Signal;
 		
 		/**
 		 * You may use a class to store your game's data, this is already an abstract class made for that. 
@@ -41,6 +51,17 @@ package citrus.core {
 		 */
 		public var levelManager:LevelManager;
 		
+		/**
+		 * the matrix that describes the transformation required to go from state container space to flash stage space.
+		 * note : this does not include the camera's transformation.
+		 * the transformation required to go from flash stage to in state space when a camera is active would be obtained with
+		 * var m:Matrix = camera.transformMatrix.clone();
+		 * m.concat(_ce.transformMatrix);
+		 * 
+		 * using flash only, the state container is aligned and of the same scale as the flash stage, so this is not required.
+		 */
+		public const transformMatrix:Matrix = new Matrix();
+		
 		protected var _state:IState;
 		protected var _newState:IState;
 		protected var _stateTransitionning:IState;
@@ -48,6 +69,10 @@ package citrus.core {
 		protected var _stateDisplayIndex:uint = 0;
 		protected var _playing:Boolean = true;
 		protected var _input:Input;
+		
+		protected var _fullScreen:Boolean = false;
+		protected var _screenWidth:int = 0;
+		protected var _screenHeight:int = 0;
 		
 		private var _startTime:Number;
 		private var _gameTime:Number;
@@ -68,6 +93,9 @@ package citrus.core {
 			_instance = this;
 			
 			onPlayingChange = new Signal(Boolean);
+			onStageResize = new Signal(int, int);
+			
+			onPlayingChange.add(handlePlayingChange);
 			
 			//Set up console
 			_console = new Console(9); //Opens with tab key by default
@@ -77,8 +105,7 @@ package citrus.core {
 			addChild(_console);
 			
 			//timekeeping
-			_startTime = new Date().time;
-			_gameTime = _startTime;
+			_gameTime = _startTime = new Date().time;
 			
 			//Set up input
 			_input = new Input();
@@ -99,6 +126,8 @@ package citrus.core {
 			
 			stage.removeEventListener(Event.ACTIVATE, handleStageActivated);
 			stage.removeEventListener(Event.DEACTIVATE, handleStageDeactivated);
+			stage.removeEventListener(FullScreenEvent.FULL_SCREEN, handleStageFullscreen);
+			stage.removeEventListener(Event.RESIZE, handleStageResize);
 			
 			removeEventListener(Event.ENTER_FRAME, handleEnterFrame);
 			
@@ -174,14 +203,20 @@ package citrus.core {
 		/**
 		 * Runs and pauses the game loop. Assign this to false to pause the game and stop the
 		 * <code>update()</code> methods from being called.
-		 * Dispatch the Signal onPlayingChange with the value
+		 * Dispatch the Signal onPlayingChange with the value.
+		 * CitrusEngine calls its own handlePlayingChange listener to
+		 * 1.reset all input actions when "playing" changes
+		 * 2.pause or resume all sounds.
+		 * override handlePlayingChange to override all or any of these behaviors.
 		 */
 		public function set playing(value:Boolean):void
 		{
+			if (value == _playing)
+				return;
+				
 			_playing = value;
 			if (_playing)
 				_gameTime = new Date().time;
-			
 			onPlayingChange.dispatch(_playing);
 		}
 		
@@ -226,7 +261,58 @@ package citrus.core {
 			stage.addEventListener(Event.DEACTIVATE, handleStageDeactivated);
 			stage.addEventListener(Event.ACTIVATE, handleStageActivated);
 			
+			stage.addEventListener(FullScreenEvent.FULL_SCREEN, handleStageFullscreen);
+			stage.addEventListener(Event.RESIZE, handleStageResize);
+			
+			_fullScreen = (stage.displayState == StageDisplayState.FULL_SCREEN || stage.displayState  == StageDisplayState.FULL_SCREEN_INTERACTIVE);
+			resetScreenSize();
+			
 			_input.initialize();
+			
+			this.initialize();
+		}
+		
+		/**
+		 * called when CitrusEngine is added to the stage and ready to run.
+		 */
+		public function initialize():void {
+		}
+		
+		protected function handleStageFullscreen(e:FullScreenEvent):void
+		{
+			_fullScreen = e.fullScreen;
+		}
+		
+		protected function handleStageResize(e:Event):void
+		{
+			resetScreenSize();
+			onStageResize.dispatch(_screenWidth, _screenHeight);
+		}
+		
+		/**
+		 * on resize or fullscreen this is called and makes sure _screenWidth/_screenHeight is correct,
+		 * it can be overriden to update other values that depend on the values of _screenWidth/_screenHeight.
+		 */
+		protected function resetScreenSize():void
+		{	
+			_screenWidth = stage.stageWidth;
+			_screenHeight = stage.stageHeight;
+		}
+		
+		/**
+		 * called when the value of 'playing' changes.
+		 * resets input actions , pauses/resumes all sounds by default.
+		 */
+		protected function handlePlayingChange(value:Boolean):void
+		{
+			if(input)
+				input.resetActions();
+			
+			if (sound)
+				if(value)
+					sound.resumeAll();
+				else
+					sound.pauseAll();
 		}
 		
 		/**
@@ -270,8 +356,7 @@ package citrus.core {
 			if (_state && _playing)
 			{
 				var nowTime:Number = new Date().time;
-				var timeSinceLastFrame:Number = nowTime - _gameTime;
-				var timeDelta:Number = timeSinceLastFrame * 0.001;
+				var timeDelta:Number = (nowTime - _gameTime) * 0.001;
 				_gameTime = nowTime;
 				
 				_state.update(timeDelta);
@@ -279,21 +364,18 @@ package citrus.core {
 					_futureState.update(timeDelta);
 			}
 			
+			_input.citrus_internal::update();
+			
 		}
 		
 		protected function handleStageDeactivated(e:Event):void
 		{
-			if (_playing)
-			{
-				playing = false;
-				stage.addEventListener(Event.ACTIVATE, handleStageActivated);
-			}
+			playing = false;
 		}
 		
 		protected function handleStageActivated(e:Event):void
 		{
 			playing = true;
-			stage.removeEventListener(Event.ACTIVATE, handleStageActivated);
 		}
 		
 		private function handleShowConsole():void
@@ -348,6 +430,32 @@ package citrus.core {
 				trace(objectName + " property:" + paramName + "=" + object[paramName]);	
 			else
 				trace("Warning: " + objectName + " has no parameter named " + paramName + ".");
+		}
+		
+		public function get fullScreen():Boolean
+		{
+			return _fullScreen;
+		}
+		
+		public function set fullScreen(value:Boolean):void
+		{
+			if (value == _fullScreen)
+				return;
+				
+			if(value)
+				stage.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
+			else
+				stage.displayState = StageDisplayState.NORMAL;
+		}
+		
+		public function get screenWidth():int
+		{
+			return _screenWidth;
+		}
+		
+		public function get screenHeight():int
+		{
+			return _screenHeight;
 		}
 	}
 }

@@ -246,7 +246,7 @@ package citrus.objects.platformer.nape {
 			{
 				var moveKeyPressed:Boolean = false;
 				
-				_ducking = (_ce.input.isDoing("duck", inputChannel) && _onGround && canDuck);
+				_ducking = (_ce.input.isDoing("down", inputChannel) && _onGround && canDuck);
 				
 				if (_ce.input.isDoing("right", inputChannel)  && !_ducking)
 				{
@@ -281,6 +281,7 @@ package citrus.objects.platformer.nape {
 				{
 					velocity.y = -jumpHeight;
 					onJump.dispatch();
+					_onGround = false; // also removed in the handleEndContact. Useful here if permanent contact e.g. box on hero.
 				}
 				
 				if (_ce.input.isDoing("jump", inputChannel) && !_onGround && velocity.y < 0)
@@ -303,7 +304,7 @@ package citrus.objects.platformer.nape {
 				else if (velocity.x < (-maxVelocity))
 					velocity.x = -maxVelocity;
 			}
-			
+						
 			updateAnimation();
 		}
 		

@@ -20,6 +20,16 @@ package citrus.input.controllers.displaylist {
 		{
 			graphic = new Sprite();
 			super(name, params);
+			
+			_innerradius = _radius - _knobradius;
+			
+			_x = _x ? _x : 2*_innerradius;
+			_y = _y ? _y : _ce.stage.stageHeight - 2*_innerradius;
+			
+			initActionRanges();
+			initGraphics();
+			
+			_updateEnabled = true;
 		}
 		
 		override protected function initGraphics():void
@@ -126,8 +136,8 @@ package citrus.input.controllers.displaylist {
 				//update knob graphic
 				if (_grabbed)
 				{
-					knob.x = _knobX;
-					knob.y = _knobY;
+					knob.x = _targetPosition.x;
+					knob.y = _targetPosition.y;
 				}
 				else if (!_centered && !((knob.x > -0.5 && knob.x < 0.5) && (knob.y > -0.5 && knob.y < 0.5)))
 				{
@@ -140,13 +150,25 @@ package citrus.input.controllers.displaylist {
 				}
 				else
 					_centered = true;
+					
+				if (_grabbed)
+					graphic.alpha = activeAlpha;
+				else
+					graphic.alpha = inactiveAlpha;
 				
 			}
 		}
 		
+		override protected function reset():void
+		{
+			super.reset();
+			graphic.x = _x;
+			graphic.y = _y;
+		}
+		
 		public function get visible():Boolean
 		{
-			return _visible = graphic.visible;;
+			return _visible = graphic.visible;
 		}
 		
 		public function set visible(value:Boolean):void

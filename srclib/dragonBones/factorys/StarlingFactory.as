@@ -8,26 +8,26 @@
 	*/
 	import dragonBones.Armature;
 	import dragonBones.Bone;
+	import dragonBones.Slot;
+	import dragonBones.core.dragonBones_internal;
 	import dragonBones.display.StarlingDisplayBridge;
 	import dragonBones.textures.ITextureAtlas;
 	import dragonBones.textures.StarlingTextureAtlas;
-	import dragonBones.textures.SubTextureData;
-	import dragonBones.utils.ConstValues;
-	import dragonBones.utils.dragonBones_internal;	
+	
 	import flash.display.BitmapData;
 	import flash.display.MovieClip;
-	import flash.geom.Rectangle;
-	import flash.utils.ByteArray;	
+	
 	import starling.core.Starling;
 	import starling.display.Image;
 	import starling.display.Sprite;
 	import starling.textures.SubTexture;
 	import starling.textures.Texture;
-	import starling.textures.TextureAtlas;	
+	import starling.textures.TextureAtlas;
+
 	use namespace dragonBones_internal;
 	
 	/**
-	 * A object managing the set of armature resources for Starling engine. It parses the raw data, stores the armature resources and creates armature instrances.
+	 * A object managing the set of armature resources for Starling engine. It parses the raw data, stores the armature resources and creates armature instances.
 	 * @see dragonBones.Armature
 	 */
 	
@@ -66,48 +66,72 @@
 		 */
 		public function StarlingFactory()
 		{
-			super();
+			super(this);
 			scaleForTexture = 1;
 		}
-		/**
-		 * Generates an Armature instance.
-		 * @return Armature An Armature instance.
-		 */
+		
+		/** @private */
+		override protected function generateTextureAtlas(content:Object, textureAtlasRawData:Object):ITextureAtlas
+		{
+			var texture:Texture;
+			var bitmapData:BitmapData;
+			if (content is BitmapData)
+			{
+				bitmapData = content as BitmapData;
+				texture = Texture.fromBitmapData(bitmapData, generateMipMaps, optimizeForRenderToTexture);
+			}
+			else if (content is MovieClip)
+			{
+				var width:int = getNearest2N(content.width) * scaleForTexture;
+				var height:int = getNearest2N(content.height) * scaleForTexture;
+				
+				_helpMatrix.a = 1;
+				_helpMatrix.b = 0;
+				_helpMatrix.c = 0;
+				_helpMatrix.d = 1;
+				_helpMatrix.scale(scaleForTexture, scaleForTexture);
+				_helpMatrix.tx = 0;
+				_helpMatrix.ty = 0;				
+				var movieClip:MovieClip = content as MovieClip;
+				movieClip.gotoAndStop(1);
+				bitmapData = new BitmapData(width, height, true, 0xFF00FF);
+				bitmapData.draw(movieClip, _helpMatrix);
+				movieClip.gotoAndStop(movieClip.totalFrames);
+				texture = Texture.fromBitmapData(bitmapData, generateMipMaps, optimizeForRenderToTexture, scaleForTexture);
+			}
+			else
+			{
+				throw new Error();
+			}			
+			var textureAtlas:StarlingTextureAtlas = new StarlingTextureAtlas(texture, textureAtlasRawData, false);			
+			if (Starling.handleLostContext)
+			{
+				textureAtlas._bitmapData = bitmapData;
+			}
+			else
+			{
+				bitmapData.dispose();
+			}
+			return textureAtlas;
+		}
+		
+		/** @private */
 		override protected function generateArmature():Armature
 		{
 			var armature:Armature = new Armature(new Sprite());
 			return armature;
 		}
-		/**
-		 * Generates a Bone instance.
-		 * @return Bone A Bone instance.
-		 */
-		override protected function generateBone():Bone
+		
+		/** @private */
+		override protected function generateSlot():Slot
 		{
-			var bone:Bone = new Bone(new StarlingDisplayBridge());
-			return bone;
+			var slot:Slot = new Slot(new StarlingDisplayBridge());
+			return slot;
 		}
-		/**
-		 * Generates a starling DisplayObject
-		 * @param	textureAtlas The TextureAtlas.
-		 * @param	fullName A qualified name.
-		 * @param	pivotX A pivot x based value.
-		 * @param	pivotY A pivot y based value.
-		 * @return
-		 */
-		override protected function generateTextureDisplay(textureAtlas:Object, fullName:String, pivotX:Number, pivotY:Number):Object
+		
+		/** @private */
+		override protected function generateDisplay(textureAtlas:Object, fullName:String, pivotX:Number, pivotY:Number):Object
 		{
-			var starlingTextureAtlas:StarlingTextureAtlas = textureAtlas as StarlingTextureAtlas;
-			if (starlingTextureAtlas)
-			{
-				//1.4
-				var subTextureData:SubTextureData = starlingTextureAtlas.getRegion(fullName) as SubTextureData;
-				if (subTextureData)
-				{
-					pivotX = pivotX || subTextureData.pivotX;
-					pivotY = pivotY || subTextureData.pivotY;
-				}
-			}			
 			var subTexture:SubTexture = (textureAtlas as TextureAtlas).getTexture(fullName) as SubTexture;
 			if (subTexture)
 			{
@@ -119,47 +143,9 @@
 			return null;
 		}
 		
-		override protected function generateTextureAtlas(content:Object, textureAtlasXML:XML):Object
+		private function getNearest2N(_n:uint):uint
 		{
-			var texture:Texture;
-			var bitmapData:BitmapData;
-			if (content is BitmapData)
-			{
-				bitmapData = content as BitmapData;
-				texture = Texture.fromBitmapData(bitmapData, generateMipMaps, optimizeForRenderToTexture);
-			}
-			else if (content is MovieClip)
-			{
-				var width:int = int(textureAtlasXML.attribute(ConstValues.A_WIDTH)) * scaleForTexture;
-				var height:int = int(textureAtlasXML.attribute(ConstValues.A_HEIGHT)) * scaleForTexture;				
-				_helpMatirx.a = 1;
-				_helpMatirx.b = 0;
-				_helpMatirx.c = 0;
-				_helpMatirx.d = 1;
-				_helpMatirx.scale(scaleForTexture, scaleForTexture);
-				_helpMatirx.tx = 0;
-				_helpMatirx.ty = 0;				
-				var movieClip:MovieClip = content as MovieClip;
-				movieClip.gotoAndStop(1);
-				bitmapData = new BitmapData(width, height, true, 0xFF00FF);
-				bitmapData.draw(movieClip, _helpMatirx);
-				movieClip.gotoAndStop(movieClip.totalFrames);
-				texture = Texture.fromBitmapData(bitmapData, generateMipMaps, optimizeForRenderToTexture, scaleForTexture);
-			}
-			else
-			{
-				//
-			}			
-			var textureAtlas:StarlingTextureAtlas = new StarlingTextureAtlas(texture, textureAtlasXML);			
-			if (Starling.handleLostContext)
-			{
-				textureAtlas._bitmapData = bitmapData;
-			}
-			else
-			{
-				bitmapData.dispose();
-			}
-			return textureAtlas;
+			return _n & _n - 1?1 << _n.toString(2).length:_n;
 		}
 	}
 }

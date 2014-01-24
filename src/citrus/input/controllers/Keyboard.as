@@ -1,6 +1,7 @@
 package citrus.input.controllers {
 
 	import citrus.input.InputController;
+	import org.osflash.signals.Signal;
 
 	import flash.events.KeyboardEvent;
 	import flash.utils.Dictionary;
@@ -15,6 +16,20 @@ package citrus.input.controllers {
 	{
 		protected var _keyActions:Dictionary;
 		
+		/**
+		 * dispatches keyCode and keyLocation on key up.
+		 * utility signal to not bother with event listeners and share the one the keyboard controller already has on stage
+		 * helps handling keys such as ENTER/BACK/HOME instantly rather than going through the action system.
+		 */
+		public var onKeyUp:Signal;
+		
+		/**
+		 * dispatches keyCode and keyLocation on key down.
+		 * utility signal to not bother with event listeners and share the one the keyboard controller already has on stage
+		 * helps handling keys such as ENTER/BACK/HOME  instantly rather than going through the action system.
+		 */
+		public var onKeyDown:Signal;
+		
 		public function Keyboard(name:String, params:Object = null)
 		{
 			super(name, params);
@@ -23,37 +38,45 @@ package citrus.input.controllers {
 			
 			//default arrow keys + space bar jump
 			
-			addKeyAction("left", Keyboard.LEFT);
-			addKeyAction("up", Keyboard.UP);
-			addKeyAction("right", Keyboard.RIGHT);
-			addKeyAction("down", Keyboard.DOWN);
-			addKeyAction("duck", Keyboard.DOWN);
-			addKeyAction("jump", Keyboard.SPACE);
+			addKeyAction("left", LEFT);
+			addKeyAction("up", UP);
+			addKeyAction("right", RIGHT);
+			addKeyAction("down", DOWN);
+			addKeyAction("jump", SPACE);
 			
-			_ce.stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
-			_ce.stage.addEventListener(KeyboardEvent.KEY_UP, onKeyUp);
+			_ce.stage.addEventListener(KeyboardEvent.KEY_DOWN, handleKeyDown);
+			_ce.stage.addEventListener(KeyboardEvent.KEY_UP, handleKeyUp);
+			
+			onKeyUp = new Signal(uint,int);
+			onKeyDown = new Signal(uint,int);
 		}
 		
-		private function onKeyDown(e:KeyboardEvent):void
+		private function handleKeyDown(e:KeyboardEvent):void
 		{
+			if (onKeyDown.numListeners > 0)
+				onKeyDown.dispatch(e.keyCode, e.keyLocation);
+				
 			if (_keyActions[e.keyCode])
 			{
 				var a:Object;
 				for each (a in _keyActions[e.keyCode])
 				{
-					triggerON(a.name, 1, (a.channel < 0 ) ? defaultChannel : a.channel);
+					triggerON(a.name, 1, null, (a.channel < 0 ) ? defaultChannel : a.channel);
 				}
 			}
 		}
 		
-		private function onKeyUp(e:KeyboardEvent):void
+		private function handleKeyUp(e:KeyboardEvent):void
 		{
+			if (onKeyUp.numListeners > 0)
+				onKeyUp.dispatch(e.keyCode, e.keyLocation);
+				
 			if (_keyActions[e.keyCode])
 			{
 				var a:Object;
 				for each (a in _keyActions[e.keyCode])
 				{
-					triggerOFF(a.name, 0, (a.channel < 0 ) ? defaultChannel : a.channel);
+					triggerOFF(a.name, 0, null, (a.channel < 0 ) ? defaultChannel : a.channel);
 				}
 			}
 		}
@@ -91,6 +114,7 @@ package citrus.input.controllers {
 				for (i in actions)
 					if (actions[i].name == actionName)
 					{
+						triggerOFF(actionName);
 						actions.splice(uint(i), 1);
 						return;
 					}
@@ -107,7 +131,10 @@ package citrus.input.controllers {
 			for each (actions in _keyActions)
 				for (i in actions)
 					if (actions[uint(i)].name == actionName)
+					{
+						triggerOFF(actionName);
 						actions.splice(uint(i), 1);
+					}
 		}
 		
 		/**
@@ -116,6 +143,7 @@ package citrus.input.controllers {
 		public function resetAllKeyActions():void
 		{
 			_keyActions = new Dictionary();
+			_ce.input.stopActionsOf(this);
 		}
 		
 		/**
@@ -137,6 +165,7 @@ package citrus.input.controllers {
 			
 			if (!_keyActions[keyCode])
 				_keyActions[keyCode] = actions;
+			_ce.input.stopActionsOf(this);
 		}
 		
 		/**
@@ -145,6 +174,7 @@ package citrus.input.controllers {
 		public function removeKeyActions(keyCode:uint):void
 		{
 			delete _keyActions[keyCode];
+			_ce.input.stopActionsOf(this);
 		}
 		
 		/**
@@ -160,8 +190,11 @@ package citrus.input.controllers {
 		
 		override public function destroy():void
 		{
-			_ce.stage.removeEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
-			_ce.stage.removeEventListener(KeyboardEvent.KEY_UP, onKeyUp);
+			onKeyUp.removeAll();
+			onKeyDown.removeAll();
+			
+			_ce.stage.removeEventListener(KeyboardEvent.KEY_DOWN, handleKeyDown);
+			_ce.stage.removeEventListener(KeyboardEvent.KEY_UP, handleKeyUp);
 			
 			_keyActions = null;
 			

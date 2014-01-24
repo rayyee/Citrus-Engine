@@ -1,10 +1,9 @@
 package citrus.objects {
 
-	import citrus.physics.PhysicsCollisionCategories;
 	import citrus.physics.nape.INapePhysicsObject;
 	import citrus.physics.nape.Nape;
+	import citrus.physics.PhysicsCollisionCategories;
 	import citrus.view.ISpriteView;
-
 	import nape.callbacks.CbType;
 	import nape.callbacks.InteractionCallback;
 	import nape.callbacks.PreCallback;
@@ -21,6 +20,7 @@ package citrus.objects {
 	import nape.shape.Polygon;
 	import nape.shape.Shape;
 	import nape.shape.ValidationResult;
+
 
 	/**
 	 * You should extend this class to take advantage of Nape. This class provides template methods for defining
@@ -83,6 +83,9 @@ package citrus.objects {
 		override public function destroy():void {
 			
 			_nape.space.bodies.remove(_body);
+			//_nape = null;
+			
+			//_body.userData.myData = null;
 			
 			super.destroy();
 		}
@@ -248,7 +251,7 @@ package citrus.objects {
 			_rotation = value * Math.PI / 180;
 			
 			if (_body)
-				_body.rotate(new Vec2(_x, _y), _rotation);
+				_body.rotation = _rotation;
 		}
 		
 		/**
@@ -263,10 +266,8 @@ package citrus.objects {
 		{
 			_width = value;
 			
-			if (_initialized)
-			{
+			if (_initialized && !hideParamWarnings)
 				trace("Warning: You cannot set " + this + " width after it has been created. Please set it in the constructor.");
-			}
 		}
 		
 		/**
@@ -281,10 +282,8 @@ package citrus.objects {
 		{
 			_height = value;
 			
-			if (_initialized)
-			{
+			if (_initialized && !hideParamWarnings)
 				trace("Warning: You cannot set " + this + " height after it has been created. Please set it in the constructor.");
-			}
 		}
 		
 		/**

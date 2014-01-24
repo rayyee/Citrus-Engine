@@ -1,7 +1,41 @@
-V3.1.8, Work In Progress
+V3.1.9, Work In Progress
 ------------------------
+- Feathers updated on 1.2.0
+- DrabonBones updated on 2.4.1
+- LevelManager enables SWF caching, very useful on iOS. Set the new property enableSwfCaching to true.
+
+V3.1.8, 11 13 2013
+------------------
+- Starling updated on 1.4.1
+- Feathers updated on 1.1.1
+- DragonBones updated to 2.4
+- Nape updated on 2.0.12
+- Removed Spine runtime support. Use it via DragonBones library (easier to maintain only one skeleton lib).
 - Updated to latest DynamicTextureAtlas extension.
+- StarlingCitrusEngine offers to manage multi-resolutions (http://wiki.starling-framework.org/citrus/multi_resolution)
+- ISpriteView handleArtReady/handleArtChanged - custom citrus sprite or physics objects can now react when 'the view is set (or loaded if the view was a url) or changes' to add/remove event listeners, transform the art or manipulate its content...
+- Input system : justDid,isDoing,hasDone return the corresponding InputAction object or null (instead of just true or false) // actions carry messages // introduced new utility functions such as getAction() with phase/controller/channel filtering.
+- Changed the way we handle the physics engine's debug drawers (due to state transition bugs, and the new nape ShapeDebug) see APhysicsEngine.debugView
+- Input : removed backwards compatibility, InputActions store the time (in frames) they spent in the Input system
+- MathVector : critical bug fixes (rotate, angle) and new methods (dot product, normalize, copyFrom, setTo)
+- Camera : AABB rectangle is accessible using camera.getRect()
+- Camera : update call can be disabled (permanently or temporarily) using camera.enabled = false - for better peformance
+- Camera : added contains(x,y) , containsRect and intersectsRect as a way to know if points/objects are on or off screen and how - for objects, use their visual bounds in state space.
+- Camera : added switchToTarget() to tween camera movement and switch the camera's target value
+- Camera : use center instead of offset. center defines a multiple of the screen position (1,1) meaning bottom right, to decide on the camera's center position (or formerly named offset) 0.5,0.5 being the center
+- SoundManager : removeAllSounds accepts exceptions, fixed stack underflow error
+- SoundManager : UI sound group added by default.
+- pause/resume sounds depending Event.ACTIVATE & Event.DEACTIVATE
+- AnimationSequence : removeAllAnimations method
+- AnimationSequence : addTextureAtlasWithAnimations to support AssetManager objects
+- using starling, an animation loaded from a .swf will be transformed into an AnimationSequence using AnimationSequence.fromMovieClip
+- use addEntity instead of add to add entity to state.
+- nape Platform oneWay fixed.
+- box2D Reward fixed (updates by default).
 - Added a LoaderContext for SpriteArt and StarlingArt, we are able to load swf on iOS.
+- Added rotation parameter in TmxObject coming from latest Tiled Map Editor builds.
+- Fixed a bug where using StarlingCitrusEngine we had to set it up directly.
+- state.getObject* functions include results from searches in the pool objects.
 
 V 3.1.7, 06 27 2013
 -------------------

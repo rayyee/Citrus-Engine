@@ -1,6 +1,9 @@
 package citrus.input.controllers {
 
 	import citrus.input.InputController;
+	import citrus.math.MathVector;
+	import flash.geom.Point;
+	import flash.geom.Rectangle;
 
 	public class AVirtualJoystick extends InputController
 	{
@@ -8,8 +11,8 @@ package citrus.input.controllers {
 		protected var _x:int;
 		protected var _y:int;
 		
-		protected var _knobX:int = 0;
-		protected var _knobY:int = 0;
+		protected var _realTouchPosition:Point = new Point();
+		protected var _targetPosition:MathVector = new MathVector();
 		
 		protected var _visible:Boolean = true;
 		
@@ -29,20 +32,30 @@ package citrus.input.controllers {
 		protected var _grabbed:Boolean = false;
 		protected var _centered:Boolean = true;
 		
-		//Optional properties
-		public var circularBounds:Boolean = false;
+		/**
+		 * wether to restrict the knob's movement in a circle or in a square
+		 * hint: square allows for extreme values on both axis when dragged in a corner.
+		 */
+		public var circularBounds:Boolean = true;
+		
+		/**
+		 * alpha to use when the joystick is not active
+		 */
+		public var inactiveAlpha:Number = 0.3;
+		
+		/**
+		 * alpha to use when the joystick is active (being dragged)
+		 */
+		public var activeAlpha:Number = 1;
+		
+		/**
+		 * distance from the center at which no action will be fired.
+		 */
+		public var threshold:Number = 0.1;
 		
 		public function AVirtualJoystick(name:String, params:Object = null)
 		{
 			super(name, params);
-			
-			_innerradius = _radius - _knobradius;
-			
-			_x = _x ? _x : 2*_innerradius;
-			_y = _y ? _y : _ce.stage.stageHeight - 2*_innerradius;
-			
-			initActionRanges();
-			initGraphics();
 		}
 		
 		/**
@@ -119,43 +132,40 @@ package citrus.input.controllers {
 				var dist:Number = relativeX*relativeX + relativeY*relativeY ;
 				if (dist <= _innerradius*_innerradius)
 				{
-					_knobX = relativeX;
-					_knobY = relativeY;
+					_targetPosition.setTo(relativeX, relativeY);
 				}
 				else
 				{
-					var angl:Number = Math.atan2(-relativeX, -relativeY);
-					_knobX = Math.cos(-angl - Math.PI/2) * _innerradius;
-					_knobY = Math.sin(-angl - Math.PI/2) * _innerradius;
+					_targetPosition.setTo(relativeX, relativeY);
+					_targetPosition.length = _innerradius;
 				}
 			}
 			else
 			{
 				if (relativeX < _innerradius && relativeX > -_innerradius)
-					_knobX = relativeX;
+					_targetPosition.x = relativeX;
 				else if (relativeX > _innerradius)
-					_knobX = _innerradius;
+					_targetPosition.x = _innerradius;
 				else if (relativeX < -_innerradius)
-					_knobX = -_innerradius;
+					_targetPosition.x = -_innerradius;
 				
 				if (relativeY < _innerradius && relativeY > -_innerradius)
-					_knobY = relativeY;
+					_targetPosition.y = relativeY;
 				else if (relativeY > _innerradius)
-					_knobY = _innerradius;
+					_targetPosition.y = _innerradius;
 				else if (relativeY < -_innerradius)
-					_knobY = -_innerradius;
+					_targetPosition.y = -_innerradius;
 			}
 			
 			//normalize x and y axes value.
 			
-			_xAxis = _knobX / _innerradius;
-			_yAxis = _knobY / _innerradius;
+			_xAxis = _targetPosition.x / _innerradius;
+			_yAxis = _targetPosition.y / _innerradius;
 			
 			// Check registered actions on both axes
 			
-			if ((_xAxis >= -0.01 && _xAxis <= 0.01) || (_yAxis >= -0.01 && _yAxis <= 0.01))
-				//threshold of Axis values where no actions will be fired // actions will turned off.
-				triggerAllOFF();
+			if (_targetPosition.length <= threshold)
+				_input.stopActionsOf(this);
 			else
 			{
 				var a:Object; //action 
@@ -168,7 +178,7 @@ package citrus.input.controllers {
 						ratio = 1 / (a.end - a.start);
 						val = _xAxis <0 ? 1 - Math.abs((_xAxis - a.start)*ratio) : Math.abs((_xAxis - a.start) * ratio);
 						if ((_xAxis >= a.start) && (_xAxis <= a.end))
-							triggerVALUECHANGE(a.name, val);
+							triggerCHANGE(a.name, val);
 						else
 							triggerOFF(a.name, 0);
 					}
@@ -179,7 +189,7 @@ package citrus.input.controllers {
 						ratio = 1 / (a.start - a.end);
 						val = _yAxis <0 ? Math.abs((_yAxis - a.end)*ratio) : 1 - Math.abs((_yAxis - a.end) * ratio);
 						if ((_yAxis >= a.start) && (_yAxis <= a.end))
-							triggerVALUECHANGE(a.name, val);
+							triggerCHANGE(a.name, val);
 						else
 							triggerOFF(a.name, 0);
 					}
@@ -187,24 +197,12 @@ package citrus.input.controllers {
 			}
 		}
 		
-		protected function triggerAllOFF():void
-		{
-			var a:Object;
-			if (_xAxisActions.length > 0)
-				for each (a in _xAxisActions)
-					triggerOFF(a.name);
-			if (_yAxisActions.length > 0)
-				for each (a in _yAxisActions)
-					triggerOFF(a.name);
-		}
-		
 		protected function reset():void
 		{
-			_knobX = 0;
-			_knobY = 0;
+			_targetPosition.setTo();
 			_xAxis = 0;
 			_yAxis = 0;
-			triggerAllOFF();
+			_input.stopActionsOf(this);
 		}
 		
 		public function set radius(value:int):void
@@ -231,18 +229,20 @@ package citrus.input.controllers {
 		
 		public function set x(value:int):void
 		{
-			if (!_initialized)
-				_x = value;
-			else
-				trace("Warning: you can only set " + this + " x through graphic.x after instanciation.");
+			if (value == _x)
+				return;
+			
+			_x = value;
+			reset();
 		}
 		
 		public function set y(value:int):void
 		{
-			if (!_initialized)
-				_y = value;
-			else
-				trace("Warning: you can only set " + this + " y through graphic.y after instanciation.");
+			if (value == _y)
+				return;
+			
+			_y = value;
+			reset();
 		}
 		
 		public function get radius():int

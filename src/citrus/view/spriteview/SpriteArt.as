@@ -11,6 +11,8 @@ package citrus.view.spriteview
 	import citrus.view.ACitrusView;
 	import citrus.view.ICitrusArt;
 	import citrus.view.ISpriteView;
+	import flash.utils.Dictionary;
+	import org.osflash.signals.Signal;
 
 	import dragonBones.Armature;
 	import dragonBones.animation.WorldClock;
@@ -54,6 +56,7 @@ package citrus.view.spriteview
 		 */
 		public var loader:Loader;
 		
+		private static var _loopAnimation:Dictionary = new Dictionary();
 		
 		private var _updateArtEnabled:Boolean = true;
 		private var _citrusObject:ISpriteView;
@@ -81,6 +84,21 @@ package citrus.view.spriteview
 				_physicsComponent = (_citrusObject as ViewComponent).entity.lookupComponentByName("physics");
 			
 			this.name = (_citrusObject as CitrusObject).name;
+			
+			if (_loopAnimation["walk"] != true) {
+				_loopAnimation["walk"] = true;
+			}
+		}
+		
+		/**
+		 * Add a loop animation to the Dictionnary.
+		 * @param tab an array with all the loop animation names.
+		 */
+		static public function setLoopAnimations(tab:Array):void {
+
+			for each (var animation:String in tab) {
+				_loopAnimation[animation] = true;
+			}
 		}
 		
 		/**
@@ -95,12 +113,10 @@ package citrus.view.spriteview
 		public function destroy(viewChanged:Boolean = false):void {
 			
 			if (viewChanged) {
-				
-				if (_view is String)
-					removeChild(_content.loaderInfo.loader);
-				 else if (_content && _content.parent)
-					removeChild(_content.parent);
-					
+				if (_content is AnimationSequence)
+					(_content as AnimationSequence).destroy();
+				if (_content && _content.parent)
+					removeChild(_content);
 			} else {
 				
 				CitrusEngine.getInstance().onPlayingChange.remove(_pauseAnimation);
@@ -153,12 +169,17 @@ package citrus.view.spriteview
 				return;
 				
 			if (_content && _content.parent)
+			{
+				_citrusObject.handleArtChanged(this as ICitrusArt);
 				destroy(true);
+				_content = null;
+			}
 			
 			_view = value;
 			
 			if (_view)
 			{				
+				var tmpObj:* ;
 				
 				if (_view is String)
 				{
@@ -168,7 +189,6 @@ package citrus.view.spriteview
 					if (suffix == ".swf" || suffix == ".png" || suffix == ".gif" || suffix == ".jpg")
 					{
 						loader = new Loader();
-						addChild(loader);
 						loader.contentLoaderInfo.addEventListener(Event.COMPLETE, handleContentLoaded);
 						loader.contentLoaderInfo.addEventListener(IOErrorEvent.IO_ERROR, handleContentIOError);
 						loader.load(new URLRequest(classString), new LoaderContext(false, ApplicationDomain.currentDomain, null));
@@ -176,39 +196,55 @@ package citrus.view.spriteview
 					// view property is a fully qualified class name in string form.
 					else
 					{
-						var artClass:Class = getDefinitionByName(classString) as Class;
-						_content = new artClass();
-						moveRegistrationPoint(_citrusObject.registration);
-						addChild(_content);
+						try
+						{
+							var artClass:Class = getDefinitionByName(classString) as Class;
+						}catch (e:Error)
+						{
+							throw new Error("[SpriteArt] could not find class definition for \"" + String(classString) + "\". \n Make sure that you compile it with the project or that its the right classpath.");
+						}
+						tmpObj = new artClass();
+						if (tmpObj is MovieClip)
+						_content = new AnimationSequence(tmpObj as MovieClip);
+						else if(tmpObj is DisplayObject)
+						_content = tmpObj;
+						else
+						throw new Error("[SpriteArt] class" + String(classString) + " does not define a DisplayObject.");
 					}
 				}
 				else if (_view is Class)
 				{
+					tmpObj = new _view();
 					//view property is a class reference
-					_content = new citrusObject.view();
-					moveRegistrationPoint(_citrusObject.registration);
-					addChild(_content);
+					if(tmpObj is DisplayObject)
+						_content = tmpObj;
+					else
+						throw new Error("[SpriteArt] " + String(_view) + " does not define a DisplayObject.");
 				}
 				else if (_view is DisplayObject)
 				{
 					// view property is a Display Object reference
 					_content = _view;
-					moveRegistrationPoint(_citrusObject.registration);
-					addChild(_content);
 					
 				} else if (_view is Armature) {
 					
 					_content = (_view as Armature).display as Sprite;
-					moveRegistrationPoint(_citrusObject.registration);
-					addChild(_content);
 					WorldClock.clock.add(_view);
 				}
 				else
 					throw new Error("SpriteArt doesn't know how to create a graphic object from the provided CitrusObject " + citrusObject);
 				
+				
 				// Call the initialize function if it exists on the custom art class.
 				if (_content && _content.hasOwnProperty("initialize"))
 					_content["initialize"](_citrusObject);
+					
+				if (_content)
+				{
+					moveRegistrationPoint(_citrusObject.registration);
+					addChild(_content);
+					_citrusObject.handleArtReady(this as ICitrusArt);
+				}
 					
 			}
 		}
@@ -238,14 +274,10 @@ package citrus.view.spriteview
 			
 			_animation = value;
 			
-			if (_content is MovieClip)
-			{
-				var mc:MovieClip = _content as MovieClip;
-				if (_animation != null && _animation != "" && hasAnimation(_animation))
-					mc.gotoAndStop(_animation);
-					
-			} else if (_view is Armature)
-					(_view as Armature).animation.gotoAndPlay(value);
+			if (_content is AnimationSequence)
+				(_content as AnimationSequence).changeAnimation(_animation, _animation in _loopAnimation ? true : false);
+			else if (_view is Armature)
+				(_view as Armature).animation.gotoAndPlay(value);
 		}
 		
 		public function get citrusObject():ISpriteView
@@ -266,9 +298,13 @@ package citrus.view.spriteview
 					scaleX = -scaleX;
 			}
 			
-			if (_content is IDebugView) {
+			if (_content is SpritePhysicsDebugView) {
+					
+				var physicsDebugArt:IDebugView = (_content as SpritePhysicsDebugView).debugView as IDebugView;
+				physicsDebugArt.transformMatrix = stateView.camera.transformMatrix;
+				physicsDebugArt.visibility = _citrusObject.visible;
 				
-				(_content as IDebugView).update();
+				(_content as SpritePhysicsDebugView).update();
 				
 			} else if (_physicsComponent) {
 				
@@ -298,25 +334,13 @@ package citrus.view.spriteview
 			group = _citrusObject.group;
 		}
 		
-		public function hasAnimation(animation:String):Boolean
-		{
-			for each (var anim:FrameLabel in (_content as MovieClip).currentLabels)
-			{
-				if (anim.name == animation)
-					return true;
-			}
-			
-			return false;
-		}
-		
 		/**
 		 * Stop or play the animation if the Citrus Engine is playing or not
 		 */
 		private function _pauseAnimation(value:Boolean):void {
 			
-			if (_content is MovieClip)
-				if (hasAnimation(_animation))
-				value ? (_content as MovieClip).gotoAndStop(_animation) : (_content as MovieClip).stop();
+			if (_content is AnimationSequence)
+				value ? (_content as AnimationSequence).resume() : (_content as AnimationSequence).pause();
 		}
 		
 		private function handleContentLoaded(e:Event):void
@@ -325,8 +349,16 @@ package citrus.view.spriteview
 			
 			if (_content is Bitmap)
 				(_content as Bitmap).smoothing = true;
+			if (_content is MovieClip)
+			{
+				_content = new AnimationSequence(_content as MovieClip);
+				//make the animation setter think _animation changed even if it didn't.
+				var anim:String = _animation; _animation = null; animation = anim;
+			}
 				
 			moveRegistrationPoint(_citrusObject.registration);
+			addChild(_content);
+			_citrusObject.handleArtReady(this as ICitrusArt);
 		}
 		
 		private function handleContentIOError(e:IOErrorEvent):void 

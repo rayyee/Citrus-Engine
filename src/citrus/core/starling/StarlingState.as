@@ -9,6 +9,7 @@ package citrus.core.starling {
 	import citrus.system.Entity;
 	import citrus.system.components.ViewComponent;
 	import citrus.view.ACitrusView;
+	import citrus.view.starlingview.StarlingCamera;
 	import citrus.view.starlingview.StarlingView;
 
 	import starling.display.Sprite;
@@ -21,16 +22,16 @@ package citrus.core.starling {
 		/**
 		 * Get a direct references to the Citrus Engine in your State.
 		 */
-		protected var _ce:CitrusEngine;
+		protected var _ce:StarlingCitrusEngine;
 		
 		protected var _realState:MediatorState;
 
-		protected var _input:Input;	
+		protected var _input:Input;
 
 		public function StarlingState() {
 			
-			_ce = CitrusEngine.getInstance();
-			
+			_ce = CitrusEngine.getInstance() as StarlingCitrusEngine;
+						
 			if (!(_ce as StarlingCitrusEngine) || !(_ce as StarlingCitrusEngine).starling)
 				throw new Error("Your Main " + _ce + " class doesn't extend StarlingCitrusEngine, or you didn't call its setUpStarling function");
 
@@ -83,12 +84,11 @@ package citrus.core.starling {
 		/**
 		 * Call this method to add an Entity to this state. All entities will need to be created
 		 * and added via this method so that they can be properly created, managed, updated, and destroyed.
-		 * @param view an Entity is designed for complex objects, most of the time they have a view component.
 		 * @return The Entity that you passed in. Useful for linking commands together.
 		 */
-		public function addEntity(entity:Entity, view:ViewComponent = null):Entity {
+		public function addEntity(entity:Entity):Entity {
 
-			return _realState.addEntity(entity, view);
+			return _realState.addEntity(entity);
 		}
 
 		/**
@@ -173,6 +173,11 @@ package citrus.core.starling {
 		 */
 		protected function createView():ACitrusView {
 			return new StarlingView(this);
+		}
+		
+		public function get camera():StarlingCamera
+		{
+			return view.camera as StarlingCamera;
 		}
 	}
 }

@@ -6,7 +6,8 @@
 	* @langversion 3.0
 	* @version 2.0
 	*/
-	import dragonBones.Armature;	
+	import dragonBones.Armature;
+	
 	import flash.utils.getTimer;
 	/**
 	 * A WorldClock instance lets you conveniently update many number of Armature instances at once. You can add/remove Armature instance and set a global timescale that will apply to all registered Armature instance animations.
@@ -48,7 +49,7 @@
 	 *			
 	 *			private function updateAnimation(e:Event):void 
 	 *			{
-	 *				WorldClock.clock.advanceTime(1 / stage.frameRate);
+	 *				WorldClock.clock.advanceTime(stage.frameRate / 1000);
 	 *			}		
 	 *		}
 	 *	}
@@ -64,7 +65,7 @@
 		 */
 		public static var clock:WorldClock = new WorldClock();
 		
-		private var animatableList:Vector.<IAnimatable>;		
+		private var _animatableList:Vector.<IAnimatable>;		
 		private var _time:Number;
 		
 		/**
@@ -101,7 +102,7 @@
 		public function WorldClock()
 		{
 			_time = getTimer() * 0.001;
-			animatableList = new Vector.<IAnimatable>;
+			_animatableList = new Vector.<IAnimatable>;
 		}
 		
 		/** 
@@ -111,7 +112,7 @@
 		 */
 		public function contains(animatable:IAnimatable):Boolean
 		{
-			return animatableList.indexOf(animatable) >= 0;
+			return _animatableList.indexOf(animatable) >= 0;
 		}
 		/**
 		 * Add a IAnimatable instance (Armature or custom) to this WorldClock instance.
@@ -119,9 +120,9 @@
 		 */
 		public function add(animatable:IAnimatable):void
 		{
-			if (animatable && animatableList.indexOf(animatable) == -1)
+			if (animatable && _animatableList.indexOf(animatable) == -1)
 			{
-				animatableList.push(animatable);
+				_animatableList.push(animatable);
 			}
 		}
 		/**
@@ -130,10 +131,10 @@
 		 */
 		public function remove(animatable:IAnimatable):void
 		{
-			var index:int = animatableList.indexOf(animatable);
+			var index:int = _animatableList.indexOf(animatable);
 			if (index >= 0)
 			{
-				animatableList[index] = null;
+				_animatableList[index] = null;
 			}
 		}
 		/**
@@ -142,7 +143,7 @@
 		 */
 		public function clear():void
 		{
-			animatableList.length = 0;
+			_animatableList.length = 0;
 		}
 		/**
 		 * Update all registered IAnimatable instance animations using this method typically in an ENTERFRAME Event or with a Timer.
@@ -150,7 +151,7 @@
 		 */
 		public function advanceTime(passedTime:Number):void
 		{
-			if (passedTime < 0)
+			if(passedTime < 0)
 			{
 				var currentTime:Number = getTimer() * 0.001;
 				passedTime = currentTime - _time;
@@ -159,36 +160,36 @@
 			
 			passedTime *= _timeScale;
 			
-			var length:int = animatableList.length;
-			if (length == 0)
+			var length:int = _animatableList.length;
+			if(length == 0)
 			{
 				return;
 			}
 			var currentIndex:int = 0;
 			
-			for (var i:int = 0; i < length; i++)
+			for(var i:int = 0;i < length;i ++)
 			{
-				var animatable:IAnimatable = animatableList[i];
-				if (animatable)
+				var animatable:IAnimatable = _animatableList[i];
+				if(animatable)
 				{
-					if (currentIndex != i)
+					if(currentIndex != i)
 					{
-						animatableList[currentIndex] = animatable;
-						animatableList[i] = null;
+						_animatableList[currentIndex] = animatable;
+						_animatableList[i] = null;
 					}
 					animatable.advanceTime(passedTime);
-					currentIndex++;
+					currentIndex ++;
 				}
 			}
 			
 			if (currentIndex != i)
 			{
-				length = animatableList.length;
-				while (i < length)
+				length = _animatableList.length;
+				while(i < length)
 				{
-					animatableList[currentIndex++] = animatableList[i++];
+					_animatableList[currentIndex ++] = _animatableList[i ++];
 				}
-				animatableList.length = currentIndex;
+				_animatableList.length = currentIndex;
 			}
 		}
 	}
